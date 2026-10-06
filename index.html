@@ -28,6 +28,8 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD G
 .wrap{max-width:600px;margin:0 auto;padding:12px 14px calc(110px + env(safe-area-inset-bottom,0px))}
 header{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 8px}
 h1{font-size:21px;margin:0;letter-spacing:-.02em}
+.inst{border:0;background:var(--acc);color:#fff;border-radius:10px;height:40px;padding:0 14px;font-weight:700;font-size:14px}
+.steps{margin:0;padding-left:20px;font-size:14px;line-height:1.8}
 .icon-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;width:40px;height:40px;font-size:18px}
 h2{font-size:16px;margin:22px 2px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
 h2 small{font-size:12px;color:var(--sub);font-weight:400}
@@ -130,7 +132,10 @@ dialog::backdrop{background:rgba(10,12,25,.5)}
 <div class="wrap">
   <header>
     <h1>악세 주문 정산</h1>
-    <button class="icon-btn" id="openSet" aria-label="설정">⚙</button>
+    <div style="display:flex;gap:8px">
+      <button class="inst" id="instBtn" hidden>📲 앱 설치</button>
+      <button class="icon-btn" id="openSet" aria-label="설정">⚙</button>
+    </div>
   </header>
 
   <div class="scan">
@@ -191,7 +196,13 @@ dialog::backdrop{background:rgba(10,12,25,.5)}
     <button type="button" class="ghost" id="impBtn">백업 붙여넣기</button>
   </div>
   <div class="row"><button value="close" class="pri">닫기</button></div>
-  <div class="hint" style="text-align:center;margin-top:10px">악세정산 V1</div>
+  <div class="hint" style="text-align:center;margin-top:10px">악세정산 V2</div>
+</form></dialog>
+
+<dialog id="instDlg"><form method="dialog" class="sheet">
+  <h3>앱으로 설치하기</h3>
+  <ol class="steps" id="instSteps"></ol>
+  <div class="row"><button value="close" class="pri">알겠어요</button></div>
 </form></dialog>
 
 <dialog id="itemDlg"><form method="dialog" class="sheet" id="itemForm">
@@ -517,6 +528,37 @@ $('#impBtn').onclick=()=>{
   const t=prompt('복사해 둔 백업을 붙여넣으세요. 지금 내용은 덮어써져요.'); if(!t) return;
   try{ const d=JSON.parse(t); if(!Array.isArray(d.people)) throw 0; S=Object.assign(defaults(),d); renderAll(); toast('백업을 불러왔어요'); }
   catch(e){ toast('백업 내용이 올바르지 않아요'); }
+};
+
+/* ---------- 앱 설치 ---------- */
+const UA=navigator.userAgent;
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=/iPhone|iPad|iPod/.test(UA)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+let deferredPrompt=null;
+// 카톡 안에서 열리면 크롬(사파리)으로 넘기기 - 카톡 안에서는 설치가 안 됨
+if(/KAKAOTALK/i.test(UA)){
+  location.href='kakaotalk://web/openExternal?url='+encodeURIComponent(location.href);
+  setTimeout(()=>{ try{ location.href=/Android/i.test(UA)?'kakaotalk://inappbrowser/close':'kakaoweb://closeBrowser'; }catch(e){} },1200);
+}
+const instBtn=$('#instBtn');
+if(!isStandalone()) instBtn.hidden=false;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredPrompt=e; instBtn.hidden=false; });
+window.addEventListener('appinstalled',()=>{ instBtn.hidden=true; deferredPrompt=null; toast('설치했어요. 홈 화면 아이콘으로 열어보세요'); });
+instBtn.onclick=async()=>{
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    const r=await deferredPrompt.userChoice.catch(()=>null);
+    deferredPrompt=null;
+    if(r&&r.outcome==='accepted') instBtn.hidden=true;
+    return;
+  }
+  const s=isIOS
+    ?['사파리로 이 페이지를 열어주세요 (다른 앱 안이라면 사파리로 열기)','아래 가운데 <b>공유 버튼(□↑)</b>을 누르세요','<b>홈 화면에 추가</b> → <b>추가</b>']
+    :/SamsungBrowser/i.test(UA)
+      ?['아래 <b>≡ 메뉴</b>를 누르세요','<b>현재 페이지 추가 → 홈 화면</b>을 누르세요']
+      :['크롬 오른쪽 위 <b>⋮</b> 메뉴를 누르세요','<b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 누르세요','설치가 안 보이면 페이지를 새로고침하고 잠깐 뒤 다시 눌러보세요'];
+  $('#instSteps').innerHTML=s.map(x=>`<li>${x}</li>`).join('');
+  $('#instDlg').showModal();
 };
 
 renderAll();
