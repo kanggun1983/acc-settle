@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#D1006F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="악세정산">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>악세 주문 정산</title>
+<style>
+:root{
+  --bg:#F2F3F7; --card:#FFFFFF; --ink:#1B2140; --sub:#6A708A; --line:#E1E3EB;
+  --acc:#D1006F; --acc-soft:#FCE6F1; --warn:#B45309; --warn-soft:#FEF3C7; --bad:#C62828; --bad-soft:#FDECEC; --ok:#1F7A55;
+  box-sizing:border-box;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#12141F; --card:#1C1F2E; --ink:#ECEEF6; --sub:#9AA0B8; --line:#2E3246;
+    --acc:#FF4FA6; --acc-soft:#3A1A2C; --warn:#FBBF24; --warn-soft:#3A2E12; --bad:#FF7A7A; --bad-soft:#3A1C1C; --ok:#5BD49B; }
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%;padding-top:env(safe-area-inset-top,0px)}
+.wrap{max-width:600px;margin:0 auto;padding:12px 14px calc(110px + env(safe-area-inset-bottom,0px))}
+header{display:flex;align-items:center;justify-content:space-between;padding:4px 2px 8px}
+h1{font-size:21px;margin:0;letter-spacing:-.02em}
+.icon-btn{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;width:40px;height:40px;font-size:18px}
+h2{font-size:16px;margin:22px 2px 10px;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+h2 small{font-size:12px;color:var(--sub);font-weight:400}
+input,select,textarea{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:-1px;border-color:transparent}
+input[type=number]{text-align:right;-moz-appearance:textfield}
+input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;color:var(--ink)}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px}
+
+/* 스캔 */
+.scan{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.big{border:0;border-radius:12px;padding:14px 8px;font-weight:700;font-size:15px}
+.big.pri{background:var(--acc);color:#fff}
+.big.sec{background:var(--card);border:1px solid var(--line)}
+.status{font-size:13px;color:var(--sub);margin:8px 2px 0;min-height:1em}
+.status.err{color:var(--bad)}
+.status.busy::before{content:"";display:inline-block;width:12px;height:12px;border:2px solid var(--acc);border-right-color:transparent;border-radius:50%;margin-right:6px;vertical-align:-1px;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.status.busy::before{animation:none}}
+
+/* 품목 */
+.filters{display:flex;gap:6px;overflow-x:auto;padding:0 2px 8px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:5px 12px;font-size:13px;color:var(--sub)}
+.chip.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.chip.alert{border-color:var(--bad);color:var(--bad)}
+.items{overflow:hidden}
+.item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item.unset{background:var(--bad-soft)}
+.item.ex{opacity:.55}
+.iname{font-size:14px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.imeta{font-size:12px;color:var(--sub);grid-column:1}
+.itot{font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.iact{grid-column:2;grid-row:2 / span 2;display:flex;gap:4px;align-items:center;justify-content:flex-end}
+.iact select{width:auto;max-width:110px;padding:6px 8px;font-size:13px;font-weight:600}
+.iact select.unset{border-color:var(--bad);color:var(--bad)}
+.iact select.shared{border-color:var(--acc);color:var(--acc)}
+.flag{grid-column:1;font-size:12px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:2px 6px;justify-self:start}
+.x{border:0;background:none;color:var(--sub);font-size:18px;width:30px;height:30px;border-radius:8px}
+.x:active{background:var(--line)}
+.empty{padding:20px 14px;color:var(--sub);font-size:14px;text-align:center}
+.rowbtns{display:flex;gap:8px;margin-top:8px}
+.ghost{flex:1;border:1.5px dashed var(--line);background:none;color:var(--sub);border-radius:10px;padding:10px;font-weight:600;font-size:14px}
+
+/* 인원 */
+.person{padding:10px 12px;margin-bottom:8px}
+.prow{display:grid;grid-template-columns:1fr 1.4fr 30px;gap:6px;align-items:center}
+.prow input.nm{font-weight:700}
+.prow2{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;margin-top:8px}
+.tog{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:20px;padding:5px 10px;font-size:13px;color:var(--sub);background:none;white-space:nowrap}
+.tog.on{border-color:var(--acc);color:var(--acc);background:var(--acc-soft);font-weight:600}
+.bal{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub)}
+.bal input{text-align:right}
+.pcalc{margin-top:8px;font-size:13px;display:flex;justify-content:space-between;gap:8px;background:var(--bg);border-radius:8px;padding:7px 10px;font-variant-numeric:tabular-nums}
+.pcalc b.neg{color:var(--bad)}
+.addp{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:0;background:var(--ink);color:var(--card);border-radius:12px;padding:13px;font-weight:700}
+
+/* 보고 */
+.report{padding:12px}
+.report pre{white-space:pre-wrap;font-family:inherit;margin:10px 0 0;font-size:14px;background:var(--bg);border-radius:10px;padding:12px;max-height:420px;overflow:auto}
+.warnbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:9px 12px;font-size:13px;margin-top:10px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.btns button{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:12px;font-weight:600}
+.btns .pri{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.hist{margin-top:8px}
+.hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:14px}
+.hrow:last-child{border-bottom:0}
+.hrow span{color:var(--sub);font-size:12px;display:block}
+.hrow button{border:1px solid var(--line);background:none;border-radius:8px;padding:6px 10px;font-size:13px;white-space:nowrap}
+
+/* 하단 바 */
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));z-index:5}
+.bar .in{max-width:600px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.bar .t{flex:1;min-width:0}
+.bar .t span{display:block;font-size:12px;color:var(--sub)}
+.bar .t span.bad{color:var(--bad);font-weight:600}
+.bar .t b{font-size:20px;font-variant-numeric:tabular-nums}
+.bar button{border:0;background:var(--acc);color:#fff;border-radius:12px;padding:13px 18px;font-weight:700}
+
+/* 시트 */
+dialog{border:0;border-radius:16px;padding:0;width:min(92vw,460px);background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(10,12,25,.5)}
+.sheet{padding:18px}
+.sheet h3{margin:0 0 12px;font-size:17px}
+.sheet label{display:block;font-size:13px;color:var(--sub);margin:12px 0 5px}
+.sheet .hint{font-size:12px;color:var(--sub);margin-top:5px}
+.sheet .row{display:flex;gap:8px;margin-top:16px}
+.sheet .row button{flex:1;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:11px;font-weight:600}
+.sheet .row .pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+#toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--card);padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:90vw;text-align:center}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>악세 주문 정산</h1>
+    <button class="icon-btn" id="openSet" aria-label="설정">⚙</button>
+  </header>
+
+  <div class="scan">
+    <button class="big pri" id="camBtn">📷 주문표 찍기</button>
+    <button class="big sec" id="albBtn">🖼 사진 고르기</button>
+  </div>
+  <input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+  <input type="file" id="albIn" accept="image/*" multiple hidden>
+  <div class="status" id="status">표가 길면 여러 장 찍어도 돼요. 겹친 줄은 알아서 걸러요.</div>
+
+  <h2>주문 품목 <small id="itemCount"></small></h2>
+  <div class="filters" id="filters"></div>
+  <div class="card items" id="items"></div>
+  <div class="rowbtns">
+    <button class="ghost" id="addItem">+ 직접 추가</button>
+    <button class="ghost" id="clearItems">목록 비우기</button>
+  </div>
+
+  <h2>인원 <small>공용은 켜진 사람끼리 나눠요</small></h2>
+  <div id="people"></div>
+  <button class="addp" id="addPerson"><b>+</b> 인원 추가</button>
+
+  <h2>보고</h2>
+  <div class="card report">
+    <input id="title" aria-label="보고 제목">
+    <div id="warn"></div>
+    <pre id="preview"></pre>
+    <div class="btns">
+      <button id="copyBtn2">보고 복사</button>
+      <button class="pri" id="confirmBtn">확정 · 잔액 차감</button>
+    </div>
+  </div>
+
+  <h2>지난 정산 <small>잔액 차감 기록</small></h2>
+  <div class="card hist" id="hist"></div>
+</div>
+
+<div class="bar"><div class="in">
+  <div class="t"><span id="barSub">결제금액</span><b id="barTotal">0원</b></div>
+  <button id="copyBtn">보고 복사</button>
+</div></div>
+<div id="toast" role="status"></div>
+
+<dialog id="setDlg"><form method="dialog" class="sheet">
+  <h3>설정</h3>
+  <label for="key">Gemini API 키 (사진 읽기용)</label>
+  <input id="key" type="password" autocomplete="off" placeholder="AIza...">
+  <div class="hint">강CRM에 쓰는 키를 그대로 넣으면 돼요. 이 폰에만 저장돼요.</div>
+  <label for="model">AI 모델</label>
+  <input id="model" placeholder="gemini-2.5-flash">
+  <div class="hint">사진 읽기가 안 되면 여기 모델 이름을 바꿔보세요.</div>
+  <label for="suffix">보고 제목 뒤에 붙일 말</label>
+  <input id="suffix" placeholder="태검">
+  <div class="hint">제목은 "오늘 날짜 + 이 말"로 자동으로 채워져요. 예) 10/6태검</div>
+  <label>백업</label>
+  <div class="grid2">
+    <button type="button" class="ghost" id="expBtn">백업 복사</button>
+    <button type="button" class="ghost" id="impBtn">백업 붙여넣기</button>
+  </div>
+  <div class="row"><button value="close" class="pri">닫기</button></div>
+  <div class="hint" style="text-align:center;margin-top:10px">악세정산 V1</div>
+</form></dialog>
+
+<dialog id="itemDlg"><form method="dialog" class="sheet" id="itemForm">
+  <h3 id="itemDlgTitle">품목 추가</h3>
+  <label for="fName">제품명</label>
+  <input id="fName" required>
+  <div class="grid2">
+    <div><label for="fOpt">옵션</label><input id="fOpt"></div>
+    <div><label for="fTo">누구</label><select id="fTo"></select></div>
+    <div><label for="fPrice">단가</label><input id="fPrice" type="number" inputmode="numeric"></div>
+    <div><label for="fQty">수량</label><input id="fQty" type="number" inputmode="numeric" value="1"></div>
+  </div>
+  <div class="row"><button value="cancel" formnovalidate>취소</button><button value="ok" class="pri">저장</button></div>
+</form></dialog>
+
+<script>
+const KEY='acc-settle-v1', KKEY='acc-settle-key';
+const fmt=n=>(Math.round(n)||0).toLocaleString('ko-KR');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let uid=Date.now(); const nid=()=>(uid++).toString(36);
+const $=s=>document.querySelector(s);
+
+function todayTitle(){ const d=new Date(); return `${d.getMonth()+1}/${d.getDate()}${S.suffix||''}`; }
+function defaults(){
+  const P=(name,label,shared)=>({id:nid(),name,label,shared,bal:0});
+  return { people:[P('두현','매장용&고객서비스',false),P('호규','고객서비스/공용',true),P('최수','고객서비스/공용',true),
+                   P('태훈','고객서비스/공용',true),P('창형','고객서비스/공용',false),P('','고객서비스/공용',false)],
+           items:[], title:'', suffix:'태검', model:'gemini-2.5-flash', history:[], filter:'all' };
+}
+let S;
+try{ S=JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ S=null; }
+if(!S||!Array.isArray(S.people)) S=defaults();
+S.items=S.items||[]; S.history=S.history||[]; S.filter=S.filter||'all';
+let API_KEY=''; try{ API_KEY=localStorage.getItem(KKEY)||''; }catch(e){}
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){} }
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove('show'),2000); }
+function setStatus(m,cls=''){ const s=$('#status'); s.textContent=m; s.className='status '+cls; }
+
+/* ---------- 메모 → 사람 연결 ---------- */
+function matchTo(memo){
+  const m=String(memo||'').replace(/\s/g,'');
+  if(!m) return '';
+  if(/공용|공통/.test(m)) return 'shared';
+  const p=S.people.find(p=>p.name&&(m===p.name||m.includes(p.name)||p.name.includes(m)));
+  return p?p.id:'';
+}
+
+/* ---------- 계산 ---------- */
+function calc(){
+  const own={}; S.people.forEach(p=>own[p.id]=0);
+  let shared=0, unsetN=0, unsetSum=0;
+  S.items.forEach(it=>{
+    const t=+it.total||0;
+    if(it.to==='shared') shared+=t;
+    else if(it.to==='ex') {}
+    else if(own[it.to]!==undefined) own[it.to]+=t;
+    else { unsetN++; unsetSum+=t; }
+  });
+  const mem=S.people.filter(p=>p.shared);
+  const n=mem.length, base=n?Math.floor(shared/n):0, rem=n?shared-base*n:0;
+  const share={}; S.people.forEach(p=>share[p.id]=0);
+  mem.forEach((p,i)=>share[p.id]=base+(i>=n-rem?1:0));
+  const rows=S.people.map(p=>({p,own:own[p.id],share:share[p.id],amt:own[p.id]+share[p.id],after:(+p.bal||0)-own[p.id]-share[p.id]}));
+  const total=rows.reduce((a,r)=>a+r.amt,0)+(n?0:shared);
+  return {rows,shared,total,unsetN,unsetSum,noMembers:shared>0&&!n};
+}
+function reportText(c){
+  const blocks=c.rows.filter(r=>r.amt>0).map(r=>{
+    const line=r.share>0?`${fmt(r.own)}원+${fmt(r.share)}원`:`${fmt(r.own)}원`;
+    return [r.p.name||'(이름 없음)', r.p.label, line, `잔액 ${fmt(r.after)}원`].filter(Boolean).join('\n');
+  });
+  return `${S.title||todayTitle()}\n\n${blocks.join('\n\n\n')}${blocks.length?'\n\n\n':''}총 ${fmt(c.total)}원 결제금액`;
+}
+
+/* ---------- 그리기 ---------- */
+function toOptions(sel){
+  const o=[`<option value=""${sel===''?' selected':''}>누구?</option>`];
+  S.people.forEach(p=>o.push(`<option value="${p.id}"${sel===p.id?' selected':''}>${esc(p.name||'(이름 없음)')}</option>`));
+  o.push(`<option value="shared"${sel==='shared'?' selected':''}>공용</option>`);
+  o.push(`<option value="ex"${sel==='ex'?' selected':''}>빼기</option>`);
+  return o.join('');
+}
+function validTo(to){ return to==='shared'||to==='ex'||S.people.some(p=>p.id===to); }
+function renderFilters(){
+  const cnt=k=>S.items.filter(it=>k==='unset'?!validTo(it.to):it.to===k).length;
+  const f=[['all','전체 '+S.items.length]];
+  const u=cnt('unset'); if(u) f.push(['unset','누구? '+u]);
+  S.people.forEach(p=>{ const n=cnt(p.id); if(n) f.push([p.id,(p.name||'이름 없음')+' '+n]); });
+  const s=cnt('shared'); if(s) f.push(['shared','공용 '+s]);
+  const e=cnt('ex'); if(e) f.push(['ex','빼기 '+e]);
+  if(!f.some(x=>x[0]===S.filter)) S.filter='all';
+  $('#filters').innerHTML=S.items.length?f.map(([k,l])=>`<button class="chip${S.filter===k?' on':''}${k==='unset'?' alert':''}" data-f="${k}">${esc(l)}</button>`).join(''):'';
+}
+function renderItems(){
+  renderFilters();
+  const list=S.items.filter(it=>S.filter==='all'||(S.filter==='unset'?!validTo(it.to):it.to===S.filter));
+  $('#itemCount').textContent=S.items.length?`${S.items.length}줄`:'';
+  $('#items').innerHTML=list.length?list.map(it=>{
+    const v=validTo(it.to)?it.to:'';
+    const cls=v===''?'unset':v==='shared'?'shared':'';
+    const mismatch=it.price&&it.qty&&it.price*it.qty!==+it.total;
+    return `<div class="item${v===''?' unset':''}${v==='ex'?' ex':''}" data-id="${it.id}">
+      <div class="iname" data-edit>${esc(it.name)}</div>
+      <div class="itot">${fmt(it.total)}원</div>
+      <div class="imeta">${esc([it.opt, it.price?fmt(it.price)+'원 × '+(it.qty||1):'', it.memo?'메모 '+it.memo:''].filter(Boolean).join(' · '))}</div>
+      <div class="iact"><select class="${cls}" data-to aria-label="누구 품목">${toOptions(v)}</select><button class="x" data-del aria-label="삭제">×</button></div>
+      ${it.dup?'<div class="flag">앞 사진과 겹친 줄 같아서 뺐어요</div>':''}
+      ${mismatch?'<div class="flag">단가×수량과 합계가 달라요. 눌러서 확인</div>':''}
+    </div>`;}).join(''):`<div class="empty">${S.items.length?'이 조건에 맞는 품목이 없어요.':'주문표 사진을 찍거나 고르면 품목이 여기 채워져요.'}</div>`;
+}
+function renderPeople(){
+  $('#people').innerHTML=S.people.map(p=>`
+    <div class="card person" data-id="${p.id}">
+      <div class="prow">
+        <input class="nm" value="${esc(p.name)}" data-f="name" placeholder="이름" aria-label="이름">
+        <input value="${esc(p.label)}" data-f="label" placeholder="구분 (예: 고객서비스/공용)" aria-label="구분">
+        <button class="x" data-pdel aria-label="인원 삭제">×</button>
+      </div>
+      <div class="prow2">
+        <button class="tog${p.shared?' on':''}" data-tog aria-pressed="${p.shared}">${p.shared?'✓ 공용 나눔':'공용 안 냄'}</button>
+        <div class="bal">현재 잔액<input type="number" inputmode="numeric" value="${p.bal||''}" data-f="bal" placeholder="0" aria-label="현재 잔액"></div>
+      </div>
+      <div class="pcalc" data-calc></div>
+    </div>`).join('');
+}
+function update(){
+  const c=calc();
+  c.rows.forEach(r=>{
+    const el=document.querySelector(`.person[data-id="${r.p.id}"] [data-calc]`); if(!el) return;
+    el.innerHTML=r.amt?`<span>이번 ${fmt(r.own)}원${r.share?'+'+fmt(r.share)+'원':''}</span><span>→ 잔액 <b class="${r.after<0?'neg':''}">${fmt(r.after)}원</b></span>`
+                      :`<span style="color:var(--sub)">이번 주문 없음</span><span>잔액 ${fmt(r.p.bal)}원</span>`;
+  });
+  const w=[];
+  if(c.unsetN) w.push(`누구 건지 안 정한 품목 ${c.unsetN}개(${fmt(c.unsetSum)}원)가 있어요. 위 목록에서 빨간 줄을 정해주세요.`);
+  if(c.noMembers) w.push('공용 품목이 있는데 공용 나눔이 켜진 사람이 없어요.');
+  c.rows.filter(r=>r.amt>0&&r.after<0).forEach(r=>w.push(`${r.p.name} 잔액이 마이너스가 돼요.`));
+  $('#warn').innerHTML=w.map(x=>`<div class="warnbox">${esc(x)}</div>`).join('');
+  if(document.activeElement!==$('#title')) $('#title').value=S.title||todayTitle();
+  $('#preview').textContent=reportText(c);
+  $('#barTotal').textContent=fmt(c.total)+'원';
+  const sb=$('#barSub'); sb.textContent=c.unsetN?`누구? ${c.unsetN}개 남음`:`결제금액 · 공용 ${fmt(c.shared)}원`; sb.className=c.unsetN?'bad':'';
+  save();
+}
+function renderHist(){
+  $('#hist').innerHTML=S.history.length?S.history.slice(0,10).map((h,i)=>`
+    <div class="hrow"><div>${esc(h.title)} · ${fmt(h.total)}원<span>${esc(new Date(h.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))}</span></div>
+    <div style="display:flex;gap:6px"><button data-hcopy="${i}">복사</button>${i===0?'<button data-undo>되돌리기</button>':''}</div></div>`).join('')
+    :'<div class="empty">확정한 정산이 여기에 쌓여요.</div>';
+}
+function renderAll(){ renderItems(); renderPeople(); renderHist(); update(); }
+
+/* ---------- 사진 읽기 (Gemini) ---------- */
+function loadImg(file){
+  return new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const im=new Image();
+    im.onload=()=>{ URL.revokeObjectURL(u); res(im); }; im.onerror=()=>{ URL.revokeObjectURL(u); rej(new Error('사진을 열 수 없어요')); }; im.src=u; });
+}
+async function toB64(file){
+  const im=await loadImg(file); const max=2200; const k=Math.min(1,max/Math.max(im.width,im.height));
+  const c=document.createElement('canvas'); c.width=Math.round(im.width*k); c.height=Math.round(im.height*k);
+  c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+  return c.toDataURL('image/jpeg',0.88).split(',')[1];
+}
+const PROMPT=`이 사진은 휴대폰 액세서리 도매 주문 내역 표입니다. 열은 사진, 제품명, 옵션, 단가/적립, 수량, 합계/적립, 메모입니다.
+표의 모든 행을 위에서 아래 순서대로 읽어 JSON 배열로만 답하세요. 다른 글자나 설명, 코드블록 표시는 쓰지 마세요.
+각 행 형식: {"name":"제품명 전체","option":"옵션","price":단가,"qty":수량,"total":합계,"memo":"메모"}
+규칙:
+- 숫자는 쉼표와 '원' 없이 정수로. 'point' 적립 숫자는 무시.
+- 메모는 사람 이름이나 '공용' 같은 짧은 글자입니다. 그대로 적으세요.
+- 사진 위나 아래 끝에서 잘려 합계나 메모가 안 보이는 행은 빼세요.
+- 빛 반사로 일부 글자가 가려져도 보이는 만큼 적으세요.
+- 표가 없으면 []`;
+async function readPhoto(file){
+  if(!API_KEY) throw new Error('NOKEY');
+  const b64=await toB64(file);
+  const model=(S.model||'gemini-2.5-flash').trim();
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(API_KEY)}`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts:[{text:PROMPT},{inline_data:{mime_type:'image/jpeg',data:b64}}]}],
+      generationConfig:{temperature:0,responseMimeType:'application/json'}})
+  });
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error((j.error&&j.error.message)||('응답 오류 '+r.status));
+  const txt=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(p=>p.text||'').join('').replace(/```json|```/g,'').trim();
+  let arr; try{ arr=JSON.parse(txt); }catch(e){ const m=txt.match(/\[[\s\S]*\]/); arr=m?JSON.parse(m[0]):null; }
+  if(arr&&!Array.isArray(arr)) arr=arr.items||arr.rows||null;
+  if(!Array.isArray(arr)) throw new Error('표를 읽지 못했어요. 더 가까이, 반사 없이 찍어주세요');
+  return arr;
+}
+const num=v=>{ const n=parseInt(String(v??'').replace(/[^\d-]/g,''),10); return isNaN(n)?0:n; };
+const sig=it=>[it.name,it.opt,it.qty,it.total,it.memo].map(x=>String(x||'').replace(/\s/g,'')).join('|');
+async function handleFiles(files){
+  files=[...files]; if(!files.length) return;
+  if(!API_KEY){ setStatus('사진을 읽으려면 설정에서 Gemini 키를 먼저 넣어주세요.','err'); $('#setDlg').showModal(); return; }
+  let added=0, dups=0;
+  for(let i=0;i<files.length;i++){
+    setStatus(`사진 ${i+1}/${files.length} 읽는 중…`,'busy');
+    try{
+      const rows=await readPhoto(files[i]);
+      const batch=nid(); const prev=new Set(S.items.map(sig));
+      rows.forEach(r=>{
+        const qty=num(r.qty)||1, price=num(r.price), total=num(r.total)||price*qty;
+        if(!total&&!r.name) return;
+        const it={id:nid(),name:String(r.name||'').trim(),opt:String(r.option||'').trim(),price,qty,total,memo:String(r.memo||'').trim(),batch};
+        it.to=matchTo(it.memo);
+        if(prev.has(sig(it))){ it.dup=true; it.to='ex'; dups++; }
+        S.items.push(it); added++;
+      });
+    }catch(e){
+      setStatus(`사진 ${i+1}: ${e.message}`,'err'); renderAll(); return;
+    }
+  }
+  S.filter='all'; renderAll();
+  const c=calc();
+  setStatus(`${added}줄 읽었어요${dups?` (겹친 줄 ${dups}개는 뺐어요)`:''}${c.unsetN?` · 누구 건지 모르는 ${c.unsetN}줄을 정해주세요`:''}. 금액을 사진과 한 번 맞춰보세요.`);
+}
+$('#camBtn').onclick=()=>$('#camIn').click();
+$('#albBtn').onclick=()=>$('#albIn').click();
+$('#camIn').onchange=e=>{ handleFiles(e.target.files); e.target.value=''; };
+$('#albIn').onchange=e=>{ handleFiles(e.target.files); e.target.value=''; };
+
+/* ---------- 품목 이벤트 ---------- */
+$('#filters').onclick=e=>{ const b=e.target.closest('[data-f]'); if(!b) return; S.filter=b.dataset.f; renderItems(); save(); };
+$('#items').addEventListener('change',e=>{
+  if(!e.target.matches('[data-to]')) return;
+  const it=S.items.find(x=>x.id===e.target.closest('.item').dataset.id); it.to=e.target.value; it.dup=false;
+  renderItems(); update();
+});
+$('#items').addEventListener('click',e=>{
+  const row=e.target.closest('.item'); if(!row) return;
+  if(e.target.closest('[data-del]')){ S.items=S.items.filter(x=>x.id!==row.dataset.id); renderItems(); update(); return; }
+  if(e.target.closest('[data-edit],.imeta,.itot,.flag')) openItem(row.dataset.id);
+});
+let editing=null;
+function openItem(itemId){
+  editing=itemId; const it=itemId?S.items.find(x=>x.id===itemId):{name:'',opt:'',price:'',qty:1,to:''};
+  $('#itemDlgTitle').textContent=itemId?'품목 고치기':'품목 추가';
+  $('#fName').value=it.name; $('#fOpt').value=it.opt||''; $('#fPrice').value=it.price||''; $('#fQty').value=it.qty||1;
+  $('#fTo').innerHTML=toOptions(validTo(it.to)?it.to:''); $('#itemDlg').showModal();
+}
+$('#itemDlg').addEventListener('close',()=>{
+  if($('#itemDlg').returnValue!=='ok') return;
+  const price=num($('#fPrice').value), qty=num($('#fQty').value)||1;
+  const d={name:$('#fName').value.trim(),opt:$('#fOpt').value.trim(),price,qty,total:price*qty,to:$('#fTo').value,dup:false};
+  if(editing) Object.assign(S.items.find(x=>x.id===editing),d); else S.items.push({id:nid(),memo:'',...d});
+  renderItems(); update();
+});
+$('#addItem').onclick=()=>openItem(null);
+$('#clearItems').onclick=()=>{ if(!S.items.length) return; if(!confirm('주문 품목을 모두 지울까요? 인원·잔액은 그대로예요.')) return; S.items=[]; renderItems(); update(); setStatus('목록을 비웠어요.'); };
+
+/* ---------- 인원 이벤트 ---------- */
+$('#people').addEventListener('input',e=>{
+  const card=e.target.closest('.person'); if(!card) return;
+  const p=S.people.find(x=>x.id===card.dataset.id), f=e.target.dataset.f;
+  if(f==='bal') p.bal=num(e.target.value); else p[f]=e.target.value;
+  update();
+});
+$('#people').addEventListener('change',e=>{
+  if(e.target.dataset.f==='name'){
+    S.items.forEach(it=>{ if(!validTo(it.to)) it.to=matchTo(it.memo); });
+    renderItems(); update();
+  }
+});
+$('#people').addEventListener('click',e=>{
+  const card=e.target.closest('.person'); if(!card) return;
+  const p=S.people.find(x=>x.id===card.dataset.id);
+  if(e.target.closest('[data-tog]')){ p.shared=!p.shared; renderPeople(); update(); }
+  else if(e.target.closest('[data-pdel]')){
+    if(!confirm(`${p.name||'이 인원'}을(를) 뺄까요? 이 사람 품목은 '누구?'로 바뀌어요.`)) return;
+    S.people=S.people.filter(x=>x.id!==p.id); renderAll();
+  }
+});
+$('#addPerson').onclick=()=>{
+  S.people.push({id:nid(),name:'',label:'고객서비스/공용',shared:false,bal:0}); renderAll();
+  const ins=document.querySelectorAll('.person .nm'); const last=ins[ins.length-1]; last.focus(); last.scrollIntoView({block:'center'});
+};
+
+/* ---------- 보고 ---------- */
+$('#title').addEventListener('input',e=>{ S.title=e.target.value; update(); });
+async function copy(t){
+  try{ if(navigator.clipboard&&window.isSecureContext){ await navigator.clipboard.writeText(t); return true; } }catch(e){}
+  const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+  let ok=false; try{ ok=document.execCommand('copy'); }catch(e){} ta.remove(); return ok;
+}
+async function copyReport(){
+  const c=calc(); if(!c.total){ toast('품목이 없어요'); return; }
+  if(c.unsetN&&!confirm(`누구 건지 안 정한 품목 ${c.unsetN}개는 빠진 채로 복사돼요. 그래도 복사할까요?`)) return;
+  toast(await copy(reportText(c))?'복사했어요. 단톡방에 붙여넣기 하세요':'복사가 안 돼요. 보고 글을 길게 눌러 복사해 주세요');
+}
+$('#copyBtn').onclick=copyReport; $('#copyBtn2').onclick=copyReport;
+$('#confirmBtn').onclick=()=>{
+  const c=calc(); if(!c.total){ toast('품목이 없어요'); return; }
+  if(c.unsetN){ toast('누구 건지 안 정한 품목부터 정해주세요'); S.filter='unset'; renderItems(); $('#filters').scrollIntoView({block:'start'}); return; }
+  if(!confirm(`총 ${fmt(c.total)}원으로 확정하고 각자 잔액에서 뺄까요?\n주문 목록은 비워져요. 바로 아래 '되돌리기'로 취소할 수 있어요.`)) return;
+  const text=reportText(c);
+  const deltas=c.rows.filter(r=>r.amt>0).map(r=>({id:r.p.id,amt:r.amt}));
+  deltas.forEach(d=>{ const p=S.people.find(x=>x.id===d.id); p.bal=(+p.bal||0)-d.amt; });
+  S.history.unshift({at:Date.now(),title:S.title||todayTitle(),total:c.total,text,deltas,items:S.items});
+  S.history=S.history.slice(0,30);
+  S.items=[]; S.title=''; S.filter='all'; renderAll(); setStatus('확정했어요. 다음 주문표를 찍으면 돼요.');
+  copy(text).then(ok=>toast(ok?'확정했어요. 보고도 복사해 뒀어요':'확정했어요'));
+};
+$('#hist').addEventListener('click',async e=>{
+  const c=e.target.closest('[data-hcopy]');
+  if(c){ toast(await copy(S.history[+c.dataset.hcopy].text)?'복사했어요':'복사가 안 돼요'); return; }
+  if(e.target.closest('[data-undo]')){
+    const h=S.history[0];
+    if(S.items.length&&!confirm('지금 목록에 있는 품목은 지워지고 그때 품목으로 돌아가요. 되돌릴까요?')) return;
+    if(!S.items.length&&!confirm(`${h.title} 정산을 취소하고 잔액을 되돌릴까요?`)) return;
+    h.deltas.forEach(d=>{ const p=S.people.find(x=>x.id===d.id); if(p) p.bal=(+p.bal||0)+d.amt; });
+    S.items=h.items||[]; S.title=h.title; S.history.shift(); renderAll(); toast('되돌렸어요');
+  }
+});
+
+/* ---------- 설정 ---------- */
+$('#openSet').onclick=()=>{ $('#key').value=API_KEY; $('#model').value=S.model||''; $('#suffix').value=S.suffix||''; $('#setDlg').showModal(); };
+$('#setDlg').addEventListener('close',()=>{
+  API_KEY=$('#key').value.trim(); try{ localStorage.setItem(KKEY,API_KEY); }catch(e){}
+  S.model=$('#model').value.trim()||'gemini-2.5-flash'; S.suffix=$('#suffix').value.trim(); update();
+  if(API_KEY&&$('#status').classList.contains('err')) setStatus('키를 넣었어요. 이제 사진을 찍어보세요.');
+});
+$('#expBtn').onclick=async()=>{ toast(await copy(JSON.stringify(S))?'백업을 복사했어요. 메모장이나 카톡 나에게 보내기에 붙여두세요':'복사가 안 돼요'); };
+$('#impBtn').onclick=()=>{
+  const t=prompt('복사해 둔 백업을 붙여넣으세요. 지금 내용은 덮어써져요.'); if(!t) return;
+  try{ const d=JSON.parse(t); if(!Array.isArray(d.people)) throw 0; S=Object.assign(defaults(),d); renderAll(); toast('백업을 불러왔어요'); }
+  catch(e){ toast('백업 내용이 올바르지 않아요'); }
+};
+
+renderAll();
+if('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
